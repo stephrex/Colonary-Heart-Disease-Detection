@@ -2,86 +2,55 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import tensorflow as tf
 
-# ==================================================
+# =====================================
 # PAGE CONFIG
-# ==================================================
+# =====================================
 
 st.set_page_config(
-    page_title="Coronary Heart Disease Prediction System",
+    page_title="Coronary Heart Disease Prediction",
     page_icon="❤️",
     layout="wide"
 )
 
-# ==================================================
-# LOAD MODELS
-# ==================================================
+# =====================================
+# LOAD MODEL FILES
+# =====================================
 
 @st.cache_resource
-def load_models():
+def load_artifacts():
 
-    scaler = joblib.load("Models/scaler.pkl")
+    model = joblib.load("Utils/random_forest.pkl")
 
-    lr_model = joblib.load("Models/logistic_regression.pkl")
+    scaler = joblib.load("Utils/scaler.pkl")
 
-    svm_model = joblib.load("Models/svm.pkl")
-
-    rf_model = joblib.load("Models/random_forest.pkl")
-
-    ann_model = tf.keras.models.load_model(
-        "Models/ann_model.keras"
+    feature_columns = joblib.load(
+        "Utils/feature_columns.pkl"
     )
 
-    return scaler, lr_model, svm_model, rf_model, ann_model
+    return model, scaler, feature_columns
 
 
-scaler, lr_model, svm_model, rf_model, ann_model = load_models()
+model, scaler, feature_columns = load_artifacts()
 
+# =====================================
+# HEADER
+# =====================================
 
-# ==================================================
-# APP TITLE
-# ==================================================
-
-st.title("❤️ Coronary Heart Disease Prediction System")
+st.title("Coronary Heart Disease Prediction System")
 
 st.markdown("""
-This system predicts the likelihood of Coronary Heart Disease (CHD)
-using Machine Learning models trained on clinical patient data.
+This system predicts whether a patient is at risk of Coronary Heart Disease (CHD)
+using a Random Forest Machine Learning model trained on clinical cardiovascular data.
 
-Available Models:
-
-- Logistic Regression
-- Support Vector Machine (SVM)
-- Random Forest
-- Artificial Neural Network (ANN)
-
-Random Forest achieved the highest performance during evaluation.
+The prediction is intended as a decision-support tool and not a replacement for professional medical diagnosis.
 """)
 
+# =====================================
+# INPUT SECTION
+# =====================================
 
-# ==================================================
-# SIDEBAR
-# ==================================================
-
-st.sidebar.header("Model Selection")
-
-model_choice = st.sidebar.selectbox(
-    "Choose Model",
-    [
-        "Random Forest",
-        "Logistic Regression",
-        "SVM",
-        "ANN"
-    ]
-)
-
-
-# ==================================================
-# INPUT FORM
-# ==================================================
-
-st.subheader("Patient Information")
+st.header("Patient Information")
 
 col1, col2 = st.columns(2)
 
@@ -102,26 +71,26 @@ with col1:
     cp = st.selectbox(
         "Chest Pain Type",
         [
-            "typical angina",
+            "asymptomatic",
             "atypical angina",
             "non-anginal",
-            "asymptomatic"
+            "typical angina"
         ]
     )
 
     trestbps = st.number_input(
-        "Resting Blood Pressure",
+        "Resting Blood Pressure (mm Hg)",
         value=120
     )
 
     chol = st.number_input(
-        "Serum Cholesterol",
+        "Serum Cholesterol (mg/dl)",
         value=200
     )
 
     fbs = st.selectbox(
         "Fasting Blood Sugar > 120 mg/dl",
-        ["False", "True"]
+        [False, True]
     )
 
 with col2:
@@ -129,34 +98,26 @@ with col2:
     restecg = st.selectbox(
         "Resting ECG",
         [
+            "lv hypertrophy",
             "normal",
-            "st-t abnormality",
-            "lv hypertrophy"
+            "st-t abnormality"
         ]
     )
 
-    thalach = st.number_input(
+    thalch = st.number_input(
         "Maximum Heart Rate Achieved",
         value=150
     )
 
     exang = st.selectbox(
         "Exercise Induced Angina",
-        ["False", "True"]
+        [False, True]
     )
 
     oldpeak = st.number_input(
         "Oldpeak",
-        value=1.0
-    )
-
-    slope = st.selectbox(
-        "Slope",
-        [
-            "upsloping",
-            "flat",
-            "downsloping"
-        ]
+        value=1.0,
+        step=0.1
     )
 
     ca = st.selectbox(
@@ -164,130 +125,83 @@ with col2:
         [0, 1, 2, 3]
     )
 
-    thal = st.selectbox(
-        "Thalassemia",
+    slope = st.selectbox(
+        "Slope",
         [
-            "normal",
-            "fixed defect",
-            "reversible defect"
+            "downsloping",
+            "flat",
+            "upsloping"
         ]
     )
 
+    thal = st.selectbox(
+        "Thalassemia",
+        [
+            "fixed defect",
+            "normal",
+            "reversable defect"
+        ]
+    )
 
-# ==================================================
-# ENCODING
-# ==================================================
+# =====================================
+# BUILD INPUT DATA
+# =====================================
 
-def prepare_input():
+def create_input_dataframe():
 
-    sex_map = {
-        "Male": 1,
-        "Female": 0
+    data = {
+        "age": age,
+        "trestbps": trestbps,
+        "chol": chol,
+        "fbs": int(fbs),
+        "thalch": thalch,
+        "exang": int(exang),
+        "oldpeak": oldpeak,
+        "ca": ca,
+        "sex_Male": 1 if sex == "Male" else 0,
+        "cp_atypical angina": 1 if cp == "atypical angina" else 0,
+        "cp_non-anginal": 1 if cp == "non-anginal" else 0,
+        "cp_typical angina": 1 if cp == "typical angina" else 0,
+        "restecg_normal": 1 if restecg == "normal" else 0,
+        "restecg_st-t abnormality": 1 if restecg == "st-t abnormality" else 0,
+        "slope_flat": 1 if slope == "flat" else 0,
+        "slope_upsloping": 1 if slope == "upsloping" else 0,
+        "thal_normal": 1 if thal == "normal" else 0,
+        "thal_reversable defect": 1 if thal == "reversable defect" else 0
     }
 
-    cp_map = {
-        "typical angina": 0,
-        "atypical angina": 1,
-        "non-anginal": 2,
-        "asymptomatic": 3
-    }
+    input_df = pd.DataFrame([data])
 
-    fbs_map = {
-        "False": 0,
-        "True": 1
-    }
+    for col in feature_columns:
 
-    restecg_map = {
-        "normal": 0,
-        "st-t abnormality": 1,
-        "lv hypertrophy": 2
-    }
+        if col not in input_df.columns:
+            input_df[col] = 0
 
-    exang_map = {
-        "False": 0,
-        "True": 1
-    }
+    input_df = input_df[feature_columns]
 
-    slope_map = {
-        "upsloping": 0,
-        "flat": 1,
-        "downsloping": 2
-    }
-    thal_map = {
-        "normal": 0,
-        "fixed defect": 1,
-        "reversible defect": 2
-    }
+    return input_df
 
-    data = pd.DataFrame({
-        "age": [age],
-        "sex": [sex_map[sex]],
-        "cp": [cp_map[cp]],
-        "trestbps": [trestbps],
-        "chol": [chol],
-        "fbs": [fbs_map[fbs]],
-        "restecg": [restecg_map[restecg]],
-        "thalch": [thalach],
-        "exang": [exang_map[exang]],
-        "oldpeak": [oldpeak],
-        "slope": [slope_map[slope]],
-        "ca": [ca],
-        "thal": [thal_map[thal]]
-    })
-
-    return data
-
-
-# ==================================================
+# =====================================
 # PREDICTION
-# ==================================================
+# =====================================
 
-if st.button("Predict"):
+if st.button("Predict Heart Disease Risk"):
 
-    patient_data = prepare_input()
+    input_df = create_input_dataframe()
 
-    scaled_data = scaler.transform(patient_data)
+    scaled_input = scaler.transform(input_df)
 
-    if model_choice == "Random Forest":
+    prediction = model.predict(
+        scaled_input
+    )[0]
 
-        probability = rf_model.predict_proba(
-            scaled_data
-        )[0][1]
-
-        prediction = rf_model.predict(
-            scaled_data
-        )[0]
-
-    elif model_choice == "Logistic Regression":
-
-        probability = lr_model.predict_proba(
-            scaled_data
-        )[0][1]
-
-        prediction = lr_model.predict(
-            scaled_data
-        )[0]
-
-    elif model_choice == "SVM":
-
-        probability = svm_model.predict_proba(
-            scaled_data
-        )[0][1]
-
-        prediction = svm_model.predict(
-            scaled_data
-        )[0]
-
-    else:
-
-        probability = ann_model.predict(
-            scaled_data,
-            verbose=0
-        )[0][0]
-
-        prediction = int(probability > 0.5)
+    probability = model.predict_proba(
+        scaled_input
+    )[0][1]
 
     st.markdown("---")
+
+    st.subheader("Prediction Result")
 
     if prediction == 1:
 
@@ -298,61 +212,36 @@ if st.button("Predict"):
     else:
 
         st.success(
-            f"No Heart Disease Detected\n\nRisk Probability: {(1-probability):.2%}"
+            f"No Heart Disease Detected\n\nConfidence: {(1-probability):.2%}"
         )
 
-    st.subheader("Prediction Summary")
-
-    result_df = pd.DataFrame({
-        "Model Used": [model_choice],
-        "Prediction": [
-            "Heart Disease"
-            if prediction == 1
-            else "No Heart Disease"
-        ],
-        "Probability": [round(probability, 4)]
-    })
-
-    st.dataframe(
-        result_df,
-        use_container_width=True
+    st.metric(
+        "Disease Probability",
+        f"{probability:.2%}"
     )
 
+# =====================================
+# MODEL INFO
+# =====================================
 
-# # ==================================================
-# # MODEL PERFORMANCE
-# # ==================================================
+st.markdown("---")
 
-# st.markdown("---")
+st.header("Model Information")
 
-# st.subheader("Model Performance Summary")
+st.write("""
+Model Used: Random Forest Classifier
 
-# performance_df = pd.DataFrame({
-#     "Model": [
-#         "Logistic Regression",
-#         "SVM",
-#         "Random Forest",
-#         "ANN"
-#     ],
-#     "Accuracy": [
-#         0.8043,
-#         0.8261,
-#         0.8424,
-#         0.8315
-#     ],
-#     "ROC AUC": [
-#         0.8926,
-#         0.9067,
-#         0.9078,
-#         0.8993
-#     ]
-# })
+Performance During Evaluation:
 
-# st.dataframe(
-#     performance_df,
-#     use_container_width=True
-# )
+• Accuracy: 84.24%
 
-# st.info(
-#     "Random Forest achieved the highest overall performance and is recommended for deployment."
-# )
+• Precision: 82.88%
+
+• Recall: 90.20%
+
+• F1 Score: 86.39%
+
+• ROC-AUC: 90.78%
+
+The Random Forest model achieved the best overall performance among all evaluated models and was therefore selected for deployment.
+""")
