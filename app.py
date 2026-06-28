@@ -63,6 +63,17 @@ MODEL_FILES = {
 
 RECOMMENDED_MODEL = "Random Forest"
 
+
+def _tensorflow_available() -> bool:
+    try:
+        import tensorflow  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+TF_AVAILABLE = _tensorflow_available()
+
 # ============================================================
 # PAGE CONFIG + STYLE
 # ============================================================
@@ -234,7 +245,12 @@ with st.sidebar:
         f"**{RECOMMENDED_MODEL}** is selected by default — it had the highest evaluation score."
     )
 
-    available_models = list(MODEL_FILES.keys())
+    available_models = [
+        m for m in MODEL_FILES.keys()
+        if MODEL_FILES[m][1] != "keras" or TF_AVAILABLE
+    ]
+    if not TF_AVAILABLE:
+        st.caption("⚠️ ANN model hidden — TensorFlow not installed in this environment.")
     label_map = {
         m: (f"{m}  ⭐  (recommended)" if m == RECOMMENDED_MODEL else m)
         for m in available_models
