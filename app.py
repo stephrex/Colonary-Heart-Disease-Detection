@@ -293,16 +293,52 @@ def load_scaler():
     return joblib.load(UTILS_DIR / "scaler.pkl")
 
 
+def _build_ann_architecture(n_features: int):
+    """
+    Recreates the ANN topology used in the modelling notebook.
+    Loading weights into a freshly-built architecture is robust to Keras
+    version drift (the .h5 may have been saved with a newer Keras whose
+    config kwargs an older Keras can't parse).
+    """
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense, Dropout, Input
+
+    model = Sequential([
+        Input(shape=(n_features,)),
+        Dense(64, activation="relu"),
+        Dropout(0.3),
+        Dense(32, activation="relu"),
+        Dropout(0.3),
+        Dense(1, activation="sigmoid"),
+    ])
+    return model
+
+
+def _load_keras_model(path: Path):
+    # Strategy 1: native load_model (works when Keras versions match)
+    try:
+        from tensorflow.keras.models import load_model as keras_load_model
+        return keras_load_model(str(path), compile=False)
+    except Exception:
+        pass
+    # Strategy 2: rebuild architecture, then load weights only
+    model = _build_ann_architecture(len(FEATURE_COLUMNS))
+    model.load_weights(str(path))
+    return model
+
+
 @st.cache_resource(show_spinner=False)
 def load_model(name: str):
     filename, kind = MODEL_FILES[name]
     path = UTILS_DIR / filename
-    if kind == "sklearn":
-        return joblib.load(path)
-    if kind == "keras":
-        from tensorflow.keras.models import load_model as keras_load_model
-        return keras_load_model(path, compile=False)
-    raise ValueError(f"Unknown model kind: {kind}")
+    try:
+        if kind == "sklearn":
+            return joblib.load(path)
+        if kind == "keras":
+            return _load_keras_model(path)
+    except Exception:
+        return None
+    return None
 
 
 @st.cache_data(show_spinner=False)
@@ -382,12 +418,20 @@ with st.sidebar:
         f"{RECOMMENDED_MODEL} is the highest-scoring model and is selected by default."
     )
 
-    available_models = [
+    candidate_models = [
         m for m in MODEL_FILES.keys()
         if MODEL_FILES[m][1] != "keras" or TF_AVAILABLE
     ]
+    available_models = [m for m in candidate_models if load_model(m) is not None]
+    unavailable_models = [m for m in candidate_models if m not in available_models]
+
     if not TF_AVAILABLE:
         st.caption("ANN is unavailable in this environment (TensorFlow not installed).")
+    if unavailable_models:
+        st.caption(
+            "Unavailable: " + ", ".join(unavailable_models)
+            + " (model file could not be loaded)."
+        )
 
     label_map = {
         m: (f"{m}  ·  recommended" if m == RECOMMENDED_MODEL else m)
