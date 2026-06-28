@@ -11,7 +11,6 @@ and the StandardScaler produced in the modelling notebook, and exposes:
 Default / recommended model: Random Forest (highest evaluation score).
 """
 
-import os
 from pathlib import Path
 
 import joblib
@@ -63,6 +62,15 @@ MODEL_FILES = {
 
 RECOMMENDED_MODEL = "Random Forest"
 
+# Refined, calm palette.
+COLOR_RISK = "#B91C1C"   # deep calm red
+COLOR_SAFE = "#059669"   # calm emerald
+COLOR_INK = "#202123"
+COLOR_MUTED = "#6B7280"
+COLOR_BORDER = "#E5E7EB"
+COLOR_SURFACE = "#FFFFFF"
+COLOR_SURFACE_2 = "#F7F7F8"
+
 
 def _tensorflow_available() -> bool:
     try:
@@ -73,6 +81,7 @@ def _tensorflow_available() -> bool:
 
 
 TF_AVAILABLE = _tensorflow_available()
+
 
 # ============================================================
 # PAGE CONFIG + STYLE
@@ -88,52 +97,187 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    .main > div { padding-top: 1.2rem; }
-    .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-    h1, h2, h3 { letter-spacing: -0.01em; }
-    div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
-        border: 1px solid rgba(255,255,255,0.08);
-        padding: 14px 18px;
-        border-radius: 14px;
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter",
+                     "Helvetica Neue", Arial, sans-serif;
+    }
+    .block-container {
+        max-width: 1180px;
+        padding-top: 2.2rem;
+        padding-bottom: 3rem;
+    }
+    h1, h2, h3, h4 {
+        letter-spacing: -0.015em;
+        color: #202123;
+        font-weight: 600;
+    }
+    h1 { font-size: 1.9rem; margin-bottom: 0.2rem; }
+    h2 { font-size: 1.3rem; }
+    h3 { font-size: 1.05rem; }
+
+    /* Header */
+    .page-header {
+        border-bottom: 1px solid #E5E7EB;
+        padding-bottom: 1.2rem;
+        margin-bottom: 1.6rem;
+    }
+    .page-header .title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .page-header .heart { font-size: 1.6rem; line-height: 1; }
+    .page-header h1 { margin: 0; font-size: 1.7rem; }
+    .page-header p.subtitle {
+        color: #6B7280;
+        font-size: 0.95rem;
+        margin: 6px 0 0 0;
+        max-width: 720px;
+    }
+
+    /* Tabs — clean underline style */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
+        border-bottom: 1px solid #E5E7EB;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 44px;
+        padding: 0 14px;
+        background: transparent;
+        color: #6B7280;
+        font-weight: 500;
+        border-radius: 0;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #202123 !important;
+        border-bottom: 2px solid #B91C1C !important;
+    }
+
+    /* Buttons */
+    .stButton > button {
+        border-radius: 10px;
+        font-weight: 500;
+        border: 1px solid #E5E7EB;
+        padding: 0.55rem 1rem;
+    }
+    .stButton > button[kind="primary"] {
+        background: #B91C1C;
+        border-color: #B91C1C;
         color: #fff;
     }
-    div[data-testid="stMetricLabel"] { color: #c9c9d4 !important; }
-    .pred-card {
-        background: linear-gradient(135deg, #11151c 0%, #1c2230 100%);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 16px;
-        padding: 18px 22px;
-        margin-bottom: 14px;
-        box-shadow: 0 6px 22px rgba(0,0,0,0.25);
+    .stButton > button[kind="primary"]:hover {
+        background: #991B1B;
+        border-color: #991B1B;
     }
-    .pred-card.risk    { border-left: 5px solid #ff4d6d; }
-    .pred-card.safe    { border-left: 5px solid #2bd97c; }
-    .pred-title        { font-size: 1.05rem; font-weight: 600; color: #ffffff; margin: 0; }
-    .pred-sub          { color: #a8b0c2; font-size: 0.85rem; margin-top: 2px; }
-    .pred-prob         { font-size: 2.0rem; font-weight: 700; margin-top: 6px; color: #fff; }
-    .badge {
-        display: inline-block;
-        padding: 2px 10px;
-        font-size: 0.72rem;
+    .stDownloadButton > button {
+        border-radius: 10px;
+        border: 1px solid #E5E7EB;
+        font-weight: 500;
+        background: #FFFFFF;
+        color: #202123;
+    }
+
+    /* Inputs */
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="input"] > div {
+        border-radius: 10px !important;
+        border-color: #E5E7EB !important;
+    }
+    .stNumberInput input {
+        border-radius: 10px;
+    }
+
+    /* Cards */
+    .card {
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 14px;
+        padding: 18px 20px;
+        margin-bottom: 12px;
+    }
+    .card-accent-risk { border-left: 3px solid #B91C1C; }
+    .card-accent-safe { border-left: 3px solid #059669; }
+    .card .model-name {
+        font-size: 0.78rem;
         font-weight: 600;
+        color: #6B7280;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0;
+    }
+    .card .verdict {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #202123;
+        margin: 6px 0 0 0;
+    }
+    .card .prob {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #202123;
+        margin: 10px 0 0 0;
+        font-variant-numeric: tabular-nums;
+    }
+    .card .prob-label {
+        font-size: 0.78rem;
+        color: #6B7280;
+        margin: 0;
+    }
+    .tag-rec {
+        display: inline-block;
+        margin-left: 8px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #6B7280;
+        background: #F3F4F6;
+        border: 1px solid #E5E7EB;
+        padding: 2px 8px;
         border-radius: 999px;
-        margin-left: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
         vertical-align: middle;
     }
-    .badge.rec   { background: #2bd97c33; color: #2bd97c; border: 1px solid #2bd97c66; }
-    .badge.risk  { background: #ff4d6d33; color: #ff4d6d; border: 1px solid #ff4d6d66; }
-    .badge.safe  { background: #2bd97c33; color: #2bd97c; border: 1px solid #2bd97c66; }
-    .hero {
-        background: linear-gradient(135deg, #ff4d6d 0%, #c9184a 50%, #6a040f 100%);
-        padding: 22px 28px;
-        border-radius: 18px;
-        color: #fff;
-        margin-bottom: 18px;
-        box-shadow: 0 10px 30px rgba(201,24,74,0.35);
+
+    /* Metric tweaks */
+    div[data-testid="stMetric"] {
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        padding: 14px 16px;
     }
-    .hero h1 { margin: 0 0 4px 0; color: #fff; }
-    .hero p  { margin: 0; opacity: 0.92; }
+    div[data-testid="stMetricLabel"] {
+        color: #6B7280 !important;
+        font-weight: 500;
+        font-size: 0.85rem !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #202123;
+        font-weight: 600;
+    }
+
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: #F7F7F8;
+        border-right: 1px solid #E5E7EB;
+    }
+    [data-testid="stSidebar"] h3 {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6B7280;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+    }
+
+    /* Subtle section labels */
+    .section-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6B7280;
+        margin: 1.4rem 0 0.6rem 0;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -156,7 +300,6 @@ def load_model(name: str):
     if kind == "sklearn":
         return joblib.load(path)
     if kind == "keras":
-        # Lazy import — only needed if the ANN model is selected.
         from tensorflow.keras.models import load_model as keras_load_model
         return keras_load_model(path, compile=False)
     raise ValueError(f"Unknown model kind: {kind}")
@@ -188,7 +331,6 @@ def predict_with_model(name: str, X_scaled: np.ndarray):
 # ============================================================
 
 def build_single_input(form_values: dict) -> pd.DataFrame:
-    """Build a 1-row DataFrame matching FEATURE_COLUMNS exactly."""
     fv = form_values
     row = {col: 0 for col in FEATURE_COLUMNS}
     row["age"] = fv["age"]
@@ -212,11 +354,6 @@ def build_single_input(form_values: dict) -> pd.DataFrame:
 
 
 def coerce_batch_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Accept a batch CSV in the cleaned-dataset schema.
-    Drops `num` / `target` if present and aligns to FEATURE_COLUMNS.
-    Missing one-hot columns are added as 0.
-    """
     df = df.copy()
     df.drop(columns=[c for c in ("num", "target") if c in df.columns], inplace=True)
     for col in ("fbs", "exang"):
@@ -232,17 +369,17 @@ def coerce_batch_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# SIDEBAR — MODEL SELECTION
+# SIDEBAR
 # ============================================================
 
 scaler = load_scaler()
 comparison_df = load_model_comparison()
 
 with st.sidebar:
-    st.markdown("### Model Selection")
+    st.markdown("### Models")
     st.caption(
-        "Pick one or more models to run inference with. "
-        f"**{RECOMMENDED_MODEL}** is selected by default — it had the highest evaluation score."
+        "Select one or more models for inference. "
+        f"{RECOMMENDED_MODEL} is the highest-scoring model and is selected by default."
     )
 
     available_models = [
@@ -250,40 +387,45 @@ with st.sidebar:
         if MODEL_FILES[m][1] != "keras" or TF_AVAILABLE
     ]
     if not TF_AVAILABLE:
-        st.caption("⚠️ ANN model hidden — TensorFlow not installed in this environment.")
+        st.caption("ANN is unavailable in this environment (TensorFlow not installed).")
+
     label_map = {
-        m: (f"{m}  ⭐  (recommended)" if m == RECOMMENDED_MODEL else m)
+        m: (f"{m}  ·  recommended" if m == RECOMMENDED_MODEL else m)
         for m in available_models
     }
-
     selected_models = st.multiselect(
-        "Models",
+        "Active models",
         options=available_models,
         default=[RECOMMENDED_MODEL],
         format_func=lambda m: label_map[m],
+        label_visibility="collapsed",
     )
 
     if not selected_models:
         st.warning("Select at least one model to enable inference.")
 
-    st.markdown("---")
     st.markdown("### About")
     st.write(
-        "This dashboard performs inference using models trained in the "
-        "**Coronary Heart Disease Detection** research project."
+        "Inference dashboard for the Coronary Heart Disease Detection "
+        "research project. Decision-support tool — not a clinical diagnosis."
     )
-    st.caption("Decision-support tool — not a substitute for clinical diagnosis.")
 
 
 # ============================================================
-# HERO
+# HEADER
 # ============================================================
 
 st.markdown(
     """
-    <div class="hero">
-        <h1>❤️ Coronary Heart Disease Prediction</h1>
-        <p>Multi-model inference dashboard — single patient & batch predictions powered by the trained research models.</p>
+    <div class="page-header">
+        <div class="title-row">
+            <span class="heart">❤️</span>
+            <h1>Coronary Heart Disease Prediction</h1>
+        </div>
+        <p class="subtitle">
+            Multi-model inference dashboard for the trained research models.
+            Run single-patient or batch predictions, and review model performance.
+        </p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -295,7 +437,7 @@ st.markdown(
 # ============================================================
 
 tab_single, tab_batch, tab_insights = st.tabs(
-    ["🩺  Single Patient", "📂  Batch CSV", "📊  Model Insights"]
+    ["Single Patient", "Batch CSV", "Model Insights"]
 )
 
 
@@ -303,38 +445,35 @@ tab_single, tab_batch, tab_insights = st.tabs(
 # TAB 1 — SINGLE PATIENT
 # ----------------------------------------------------------------
 with tab_single:
-    st.subheader("Patient Information")
-    st.caption("Enter the patient's clinical features, then run inference.")
+    st.markdown('<div class="section-label">Patient information</div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
-
     with col1:
         age = st.number_input("Age", min_value=18, max_value=100, value=50)
         sex = st.selectbox("Sex", ["Male", "Female"])
         cp = st.selectbox(
-            "Chest Pain Type",
+            "Chest pain type",
             ["asymptomatic", "atypical angina", "non-anginal", "typical angina"],
         )
-        trestbps = st.number_input("Resting Blood Pressure (mm Hg)", value=120)
-        chol = st.number_input("Serum Cholesterol (mg/dl)", value=200)
-        fbs = st.selectbox("Fasting Blood Sugar > 120 mg/dl", [False, True])
-
+        trestbps = st.number_input("Resting blood pressure (mm Hg)", value=120)
+        chol = st.number_input("Serum cholesterol (mg/dl)", value=200)
+        fbs = st.selectbox("Fasting blood sugar > 120 mg/dl", [False, True])
     with col2:
         restecg = st.selectbox(
             "Resting ECG", ["lv hypertrophy", "normal", "st-t abnormality"]
         )
-        thalch = st.number_input("Maximum Heart Rate Achieved", value=150)
-        exang = st.selectbox("Exercise Induced Angina", [False, True])
+        thalch = st.number_input("Maximum heart rate achieved", value=150)
+        exang = st.selectbox("Exercise-induced angina", [False, True])
         oldpeak = st.number_input("Oldpeak", value=1.0, step=0.1)
-        ca = st.selectbox("Number of Major Vessels", [0, 1, 2, 3])
+        ca = st.selectbox("Number of major vessels", [0, 1, 2, 3])
         slope = st.selectbox("Slope", ["downsloping", "flat", "upsloping"])
         thal = st.selectbox(
             "Thalassemia", ["fixed defect", "normal", "reversable defect"]
         )
 
-    st.markdown("")
+    st.write("")
     run_single = st.button(
-        "🔮  Predict Heart Disease Risk",
+        "Predict heart disease risk",
         type="primary",
         use_container_width=True,
         disabled=not selected_models,
@@ -349,10 +488,8 @@ with tab_single:
         input_df = build_single_input(form_values)
         X_scaled = scaler.transform(input_df)
 
-        st.markdown("---")
-        st.subheader("Prediction Results")
+        st.markdown('<div class="section-label">Predictions</div>', unsafe_allow_html=True)
 
-        # Cards row
         card_cols = st.columns(min(len(selected_models), 4))
         per_model = []
         for i, name in enumerate(selected_models):
@@ -362,50 +499,47 @@ with tab_single:
             per_model.append((name, label, p))
 
             with card_cols[i % len(card_cols)]:
-                risk_class = "risk" if label == 1 else "safe"
-                outcome = "Heart Disease Detected" if label == 1 else "No Heart Disease"
-                badge = (
-                    '<span class="badge risk">AT RISK</span>'
-                    if label == 1
-                    else '<span class="badge safe">LOW RISK</span>'
-                )
-                rec_badge = (
-                    '<span class="badge rec">recommended</span>'
-                    if name == RECOMMENDED_MODEL
-                    else ""
-                )
+                accent = "card-accent-risk" if label == 1 else "card-accent-safe"
+                verdict = "At risk" if label == 1 else "Low risk"
+                rec_tag = '<span class="tag-rec">recommended</span>' if name == RECOMMENDED_MODEL else ""
                 st.markdown(
                     f"""
-                    <div class="pred-card {risk_class}">
-                        <p class="pred-title">{name}{rec_badge}</p>
-                        <p class="pred-sub">{outcome} {badge}</p>
-                        <p class="pred-prob">{p:.1%}</p>
-                        <p class="pred-sub">Disease probability</p>
+                    <div class="card {accent}">
+                        <p class="model-name">{name}{rec_tag}</p>
+                        <p class="verdict">{verdict}</p>
+                        <p class="prob">{p:.1%}</p>
+                        <p class="prob-label">Disease probability</p>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
 
-        # Probability gauges
-        st.markdown("##### Probability Gauges")
+        st.markdown('<div class="section-label">Probability gauges</div>', unsafe_allow_html=True)
         gauge_cols = st.columns(min(len(per_model), 4))
         for i, (name, label, p) in enumerate(per_model):
             with gauge_cols[i % len(gauge_cols)]:
+                bar_color = COLOR_RISK if label == 1 else COLOR_SAFE
                 fig = go.Figure(
                     go.Indicator(
                         mode="gauge+number",
                         value=p * 100,
-                        number={"suffix": "%", "font": {"size": 28}},
-                        title={"text": name, "font": {"size": 14}},
+                        number={"suffix": "%", "font": {"size": 26, "color": COLOR_INK}},
+                        title={"text": name, "font": {"size": 13, "color": COLOR_MUTED}},
                         gauge={
-                            "axis": {"range": [0, 100]},
-                            "bar": {"color": "#ff4d6d" if label == 1 else "#2bd97c"},
+                            "axis": {
+                                "range": [0, 100],
+                                "tickcolor": COLOR_MUTED,
+                                "tickfont": {"color": COLOR_MUTED, "size": 10},
+                            },
+                            "bar": {"color": bar_color, "thickness": 0.25},
+                            "bgcolor": COLOR_SURFACE_2,
+                            "borderwidth": 0,
                             "steps": [
-                                {"range": [0, 50], "color": "rgba(43,217,124,0.15)"},
-                                {"range": [50, 100], "color": "rgba(255,77,109,0.15)"},
+                                {"range": [0, 50], "color": "#ECFDF5"},
+                                {"range": [50, 100], "color": "#FEF2F2"},
                             ],
                             "threshold": {
-                                "line": {"color": "white", "width": 3},
+                                "line": {"color": COLOR_MUTED, "width": 2},
                                 "thickness": 0.75,
                                 "value": 50,
                             },
@@ -413,22 +547,21 @@ with tab_single:
                     )
                 )
                 fig.update_layout(
-                    height=240,
+                    height=220,
                     margin=dict(l=10, r=10, t=40, b=10),
                     paper_bgcolor="rgba(0,0,0,0)",
-                    font={"color": "#e6e6f0"},
+                    font={"color": COLOR_INK},
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-        # Cross-model comparison
         if len(per_model) > 1:
-            st.markdown("##### Cross-Model Comparison")
+            st.markdown('<div class="section-label">Cross-model comparison</div>', unsafe_allow_html=True)
             cmp_df = pd.DataFrame(
                 [
                     {
                         "Model": n,
-                        "Prediction": "At Risk" if l == 1 else "Low Risk",
-                        "Disease Probability": p,
+                        "Prediction": "At risk" if l == 1 else "Low risk",
+                        "Disease probability": p,
                     }
                     for n, l, p in per_model
                 ]
@@ -436,18 +569,21 @@ with tab_single:
             fig = px.bar(
                 cmp_df,
                 x="Model",
-                y="Disease Probability",
+                y="Disease probability",
                 color="Prediction",
-                color_discrete_map={"At Risk": "#ff4d6d", "Low Risk": "#2bd97c"},
-                text=cmp_df["Disease Probability"].apply(lambda v: f"{v:.1%}"),
+                color_discrete_map={"At risk": COLOR_RISK, "Low risk": COLOR_SAFE},
+                text=cmp_df["Disease probability"].apply(lambda v: f"{v:.1%}"),
                 range_y=[0, 1],
             )
-            fig.update_traces(textposition="outside")
+            fig.update_traces(textposition="outside", marker_line_width=0)
             fig.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                font={"color": "#e6e6f0"},
-                margin=dict(l=10, r=10, t=30, b=10),
+                font={"color": COLOR_INK, "family": "Inter, sans-serif"},
+                margin=dict(l=10, r=10, t=20, b=10),
+                xaxis=dict(showgrid=False),
+                yaxis=dict(gridcolor=COLOR_BORDER, tickformat=".0%"),
+                legend=dict(orientation="h", y=-0.2),
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -456,18 +592,18 @@ with tab_single:
 # TAB 2 — BATCH CSV
 # ----------------------------------------------------------------
 with tab_batch:
-    st.subheader("Batch Inference from CSV")
+    st.markdown('<div class="section-label">Batch inference from CSV</div>', unsafe_allow_html=True)
     st.caption(
         "Upload a CSV in the cleaned-dataset schema "
-        "(same columns as `Dataset/Processed Datasets/cleaned_heart_disease_data.csv`). "
-        "Optional `target` / `num` columns are ignored for inference."
+        "(same columns as Dataset/Processed Datasets/cleaned_heart_disease_data.csv). "
+        "Optional target and num columns are ignored for inference."
     )
 
     sample_path = DATA_DIR / "cleaned_heart_disease_data.csv"
     if sample_path.exists():
         with open(sample_path, "rb") as f:
             st.download_button(
-                "⬇️  Download sample CSV template",
+                "Download sample CSV template",
                 data=f,
                 file_name="cleaned_heart_disease_sample.csv",
                 mime="text/csv",
@@ -477,12 +613,12 @@ with tab_batch:
 
     if uploaded is not None:
         raw_df = pd.read_csv(uploaded)
-        st.markdown("**Preview — uploaded data**")
+        st.markdown('<div class="section-label">Preview</div>', unsafe_allow_html=True)
         st.dataframe(raw_df.head(10), use_container_width=True)
-        st.caption(f"{len(raw_df)} rows · {len(raw_df.columns)} columns")
+        st.caption(f"{len(raw_df)} rows  ·  {len(raw_df.columns)} columns")
 
         run_batch = st.button(
-            "🚀  Run Batch Inference",
+            "Run batch inference",
             type="primary",
             use_container_width=True,
             disabled=not selected_models,
@@ -502,33 +638,33 @@ with tab_batch:
                     pred, prob = predict_with_model(name, X_scaled)
                     result_df[f"{name} — Probability"] = np.round(prob, 4)
                     result_df[f"{name} — Prediction"] = np.where(
-                        pred == 1, "At Risk", "Low Risk"
+                        pred == 1, "At risk", "Low risk"
                     )
                     summary_rows.append(
                         {
                             "Model": name,
-                            "At Risk": int((pred == 1).sum()),
-                            "Low Risk": int((pred == 0).sum()),
-                            "Avg Probability": float(prob.mean()),
+                            "At risk": int((pred == 1).sum()),
+                            "Low risk": int((pred == 0).sum()),
+                            "Avg probability": float(prob.mean()),
                         }
                     )
 
-                st.markdown("---")
-                st.subheader("Inference Summary")
+                st.markdown('<div class="section-label">Summary</div>', unsafe_allow_html=True)
                 summary_df = pd.DataFrame(summary_rows)
                 m_cols = st.columns(len(summary_rows))
                 for i, row in enumerate(summary_rows):
                     with m_cols[i]:
                         st.metric(
                             label=row["Model"],
-                            value=f"{row['At Risk']} at risk",
-                            delta=f"{row['Avg Probability']:.1%} avg prob",
+                            value=f"{row['At risk']} at risk",
+                            delta=f"{row['Avg probability']:.1%} avg probability",
+                            delta_color="off",
                         )
 
                 fig = px.bar(
                     summary_df.melt(
                         id_vars="Model",
-                        value_vars=["At Risk", "Low Risk"],
+                        value_vars=["At risk", "Low risk"],
                         var_name="Class",
                         value_name="Count",
                     ),
@@ -536,22 +672,26 @@ with tab_batch:
                     y="Count",
                     color="Class",
                     barmode="group",
-                    color_discrete_map={"At Risk": "#ff4d6d", "Low Risk": "#2bd97c"},
+                    color_discrete_map={"At risk": COLOR_RISK, "Low risk": COLOR_SAFE},
                 )
+                fig.update_traces(marker_line_width=0)
                 fig.update_layout(
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
-                    font={"color": "#e6e6f0"},
-                    margin=dict(l=10, r=10, t=30, b=10),
+                    font={"color": COLOR_INK, "family": "Inter, sans-serif"},
+                    margin=dict(l=10, r=10, t=20, b=10),
+                    xaxis=dict(showgrid=False),
+                    yaxis=dict(gridcolor=COLOR_BORDER),
+                    legend=dict(orientation="h", y=-0.2),
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                st.markdown("##### Per-row predictions")
+                st.markdown('<div class="section-label">Per-row predictions</div>', unsafe_allow_html=True)
                 st.dataframe(result_df, use_container_width=True, height=420)
 
                 csv_bytes = result_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
-                    "⬇️  Download predictions as CSV",
+                    "Download predictions as CSV",
                     data=csv_bytes,
                     file_name="batch_predictions.csv",
                     mime="text/csv",
@@ -563,7 +703,7 @@ with tab_batch:
 # TAB 3 — MODEL INSIGHTS
 # ----------------------------------------------------------------
 with tab_insights:
-    st.subheader("Model Performance")
+    st.markdown('<div class="section-label">Model performance</div>', unsafe_allow_html=True)
 
     if comparison_df is not None:
         styled = comparison_df.copy()
@@ -574,7 +714,7 @@ with tab_insights:
             styled.style.format({c: "{:.2%}" for c in styled.columns if c != "Model"})
                         .background_gradient(
                             subset=[c for c in styled.columns if c != "Model"],
-                            cmap="RdYlGn",
+                            cmap="Reds",
                         ),
             use_container_width=True,
         )
@@ -588,19 +728,23 @@ with tab_insights:
             long_df,
             x="Model", y="Score", color="Metric",
             barmode="group", range_y=[0, 1],
+            color_discrete_sequence=["#B91C1C", "#DC2626", "#F87171", "#FCA5A5", "#FEE2E2"],
         )
+        fig.update_traces(marker_line_width=0)
         fig.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font={"color": "#e6e6f0"},
-            margin=dict(l=10, r=10, t=30, b=10),
+            font={"color": COLOR_INK, "family": "Inter, sans-serif"},
+            margin=dict(l=10, r=10, t=20, b=10),
+            xaxis=dict(showgrid=False),
+            yaxis=dict(gridcolor=COLOR_BORDER, tickformat=".0%"),
+            legend=dict(orientation="h", y=-0.2),
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Model comparison file not found.")
 
-    st.markdown("---")
-    st.subheader("Evaluation Plots")
+    st.markdown('<div class="section-label">Evaluation plots</div>', unsafe_allow_html=True)
 
     plot_options = {
         "Model comparison (bar)": EVAL_PLOTS_DIR / "model_comparison_with_values.png",
