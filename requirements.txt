@@ -1,9 +1,13 @@
 streamlit
-pandas==2.2.3
-numpy==1.26.4
+pandas
+numpy
 scikit-learn==1.5.2
-joblib==1.4.2
-matplotlib==3.9.2
-seaborn==0.13.2
-plotly==5.24.1
-tensorflow-cpu==2.15.0
+joblib
+matplotlib
+seaborn
+plotly
+
+# To enable the ANN model:
+#   1. In Streamlit Cloud → app menu → Settings → set Python version to 3.11
+#   2. Uncomment the line below and redeploy
+# tensorflow-cpu==2.15.0
